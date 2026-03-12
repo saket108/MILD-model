@@ -1,0 +1,11 @@
+weights:
+  area: 0.6
+  elongation: 0.25
+  edge: 0.15
+
+class_ranks: {}
+zone_weights: {}
+
+defaults:
+  rank: 1.0
+  zone_weight: 1.0

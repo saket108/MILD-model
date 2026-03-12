@@ -1,0 +1,11 @@
+torch
+torchvision
+timm
+transformers
+albumentations
+opencv-python
+rich
+numpy
+pyyaml
+tqdm
+matplotlib

@@ -1,0 +1,18 @@
+image_encoder: convnext_tiny
+text_encoder: sentence-transformers/all-MiniLM-L6-v2
+
+hidden_dim: 256
+num_queries: 100
+
+fusion:
+  type: prompt_guided_attention
+  num_heads: 8
+  dropout: 0.1
+
+metrics_dim: 4
+metrics_hidden: 128
+
+decoder_layers: 3
+decoder_heads: 8
+
+num_classes: 5

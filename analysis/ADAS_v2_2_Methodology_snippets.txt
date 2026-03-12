@@ -1,0 +1,283 @@
+
+==== severity ====
+ADAS_v2.2 — Adaptive Damage Assessment
+Scoring Framework
+Generated on: 2026-02-20 02:17:58
+1. Overview
+ADAS_v2.2 is a class-aware, zone-aware, geometrically weighted severity scoring framework for
+aircraft surface damage assessment. The system produces interpretable severity levels based on
+bounding box geometry extracted from YOLOv8 detection annotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservativ
+
+==== score ====
+ssessment. The system produces interpretable severity levels based on
+bounding box geometry extracted from YOLOv8 detection annotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains mandatory.
+8. Framework Classification
+Algorithm Type: Deterministic, Multi-factor Heuristic Severity Scoring Model Core Characteristics:
+Class-aware, Zone-a
+
+==== percentile ====
+nnotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains mandatory.
+8. Framework Classification
+Algorithm Type: Deterministic, Multi-factor Heuristic Severity Scoring Model Core Characteristics:
+Class-aware, Zone-aware, Distribution-calibrated, Explainable
+
+
+==== p50 ====
+ height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains mandatory.
+8. Framework Classification
+Algorithm Type: Deterministic, Multi-factor Heuristic Severity Scoring Model Core Characteristics:
+Class-aware, Zone-aware, Distribution-calibrated, Explainable
+
+
+==== p85 ====
+ − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains mandatory.
+8. Framework Classification
+Algorithm Type: Deterministic, Multi-factor Heuristic Severity Scoring Model Core Characteristics:
+Class-aware, Zone-aware, Distribution-calibrated, Explainable
+
+
+==== area ====
+ADAS_v2.2 — Adaptive Damage Assessment
+Scoring Framework
+Generated on: 2026-02-20 02:17:58
+1. Overview
+ADAS_v2.2 is a class-aware, zone-aware, geometrically weighted severity scoring framework for
+aircraft surface damage assessment. The system produces interpretable severity levels based on
+bounding box geometry extracted from YOLOv8 detection annotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No materia
+
+==== elongation ====
+Adaptive Damage Assessment
+Scoring Framework
+Generated on: 2026-02-20 02:17:58
+1. Overview
+ADAS_v2.2 is a class-aware, zone-aware, geometrically weighted severity scoring framework for
+aircraft surface damage assessment. The system produces interpretable severity levels based on
+bounding box geometry extracted from YOLOv8 detection annotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+
+==== edge ====
+n: 2026-02-20 02:17:58
+1. Overview
+ADAS_v2.2 is a class-aware, zone-aware, geometrically weighted severity scoring framework for
+aircraft surface damage assessment. The system produces interpretable severity levels based on
+bounding box geometry extracted from YOLOv8 detection annotations.
+2. Feature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains man
+
+==== calibration ====
+ature Extraction
+Area Ratio:
+A = width × height
+Elongation:
+E = max(width, height) / min(width, height)
+Edge Factor:
+F = 1 − min(x_center, y_center, 1 − x_center, 1 − y_center)
+3. Structural Weight Normalization
+W = rank(category) / max_rank
+4. Raw Severity Score Formulation
+Example for Crack:
+Score = W × (0.6A + 0.25E + 0.15F)
+Zone Adjustment:
+Final Score = Score × ZoneWeight
+5. Percentile-Based Calibration
+
+Severity levels are determined using dataset distribution percentiles:
+If Score < p50 → Low
+If p50 ≤ Score < p85 → Moderate
+If Score ≥ p85 → High
+6. Description Engine
+A dynamic conservative narrative generator produces structured inspection-style descriptions
+based on severity, geometric metrics, and spatial zone estimation.
+7. Limitations
+ Severity is based on 2D bounding box geometry.  No material thickness, stress, or fatigue
+modeling included.  Engineering inspection remains mandatory.
+8. Framework Classification
+Algorithm Type: Deterministic, Multi-factor Heuristic Severity Scoring Model Core Characteristics:
+Class-aware, Zone-aware, Distribution-calibrated, Explainable

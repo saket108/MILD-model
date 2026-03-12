@@ -1,0 +1,39 @@
+{
+  "images": [
+    {
+      "image_id": "image_0001",
+      "file_name": "image_0001.jpg",
+      "split": "train",
+      "annotations": [
+        {
+          "annotation_id": "image_0001_0",
+          "category_id": 0,
+          "category_name": "dent",
+          "class_definition": "A localized surface deformation without material fracture.",
+          "zone_estimation": "central",
+          "bounding_box_normalized": {
+            "x_center": 0.5,
+            "y_center": 0.5,
+            "width": 0.4,
+            "height": 0.3
+          },
+          "damage_metrics": {
+            "area_ratio": 0.12,
+            "elongation": 1.3,
+            "edge_factor": 0.5,
+            "raw_severity_score": 0.2
+          },
+          "risk_assessment": {
+            "severity_level": "low",
+            "calibration_percentiles": {
+              "p50": 0.15,
+              "p85": 0.9
+            },
+            "requires_manual_validation": false
+          },
+          "description": "Low severity dent detected in the central region."
+        }
+      ]
+    }
+  ]
+}

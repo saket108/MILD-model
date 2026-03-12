@@ -1,0 +1,16 @@
+runs/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local datasets and exports
+dataset/mild_data_1/
+datasets/
+data/
+
+# Model artifacts
+*.pt
+*.pth
+*.ckpt
+*.onnx
