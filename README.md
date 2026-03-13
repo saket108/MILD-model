@@ -78,6 +78,10 @@ Rich JSON with metadata:
 python tools/train.py \
   --config configs/train.yaml
 ```
+Optional run notes notebook:
+```bash
+python tools/train.py --config configs/train.yaml --notes "experiment: multiscale+aux+amp"
+```
 
 **Train With Label Folders (no JSON)**
 Set these in `configs/dataset.yaml`:
@@ -122,6 +126,7 @@ Experiments are stored under `runs/`.
 - `python analysis/severity_analyzer.py`
 - `python analysis/severity_calibration.py`
 - `python analysis/dataset_report.py`
+- `python analysis/validate_dataset.py`
 
 **Pipeline**
 ```bash

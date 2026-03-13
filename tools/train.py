@@ -21,7 +21,9 @@ from models.mild_model import build_model
 from training.optimizer import build_optimizer
 from training.scheduler import build_scheduler
 from training.trainer import Trainer
+from analysis.validate_dataset import validate_dataset
 from utils.device import resolve_device
+from utils.run_notes import write_run_notebook
 from utils.seed import set_seed
 
 
@@ -59,6 +61,8 @@ def main() -> None:
     parser.add_argument("--val-json", help="Override val JSON path.")
     parser.add_argument("--image-root", help="Override image root.")
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--no-validate", action="store_true", help="Skip dataset validation.")
+    parser.add_argument("--notes", default=None, help="Optional run notes for runs/exp_xxx/notes.ipynb")
     args = parser.parse_args()
 
     if args.config:
@@ -89,6 +93,20 @@ def main() -> None:
     class_names = dataset_cfg.get("class_names")
     if not train_json and not (train_images and train_labels):
         raise ValueError("Provide train_json or train_images/train_labels in dataset config.")
+
+    if not args.no_validate:
+        overrides = {}
+        if args.train_json:
+            overrides["train_json"] = args.train_json
+        if args.val_json:
+            overrides["val_json"] = args.val_json
+        if args.image_root:
+            overrides["image_root"] = args.image_root
+        issues = validate_dataset(dataset_cfg, overrides=overrides, verbose=True)
+        if issues:
+            raise SystemExit(
+                "Dataset validation failed. Fix issues or re-run with --no-validate."
+            )
 
     if train_json:
         if not image_root:
@@ -165,6 +183,7 @@ def main() -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     with (run_dir / "config.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump({"train": cfg_train, "model": cfg_model}, f, sort_keys=False)
+    write_run_notebook(run_dir, args.notes, cfg_train, cfg_model, dataset_cfg)
 
     trainer = Trainer(
         model=model,
@@ -174,6 +193,8 @@ def main() -> None:
         device=torch.device(device),
         save_dir=run_dir,
         evaluator=evaluate if val_loader is not None else None,
+        use_amp=train_cfg.get("amp", False),
+        grad_clip_norm=train_cfg.get("grad_clip_norm", 0.0),
     )
 
     trainer.fit(dataloader, epochs=train_cfg.get("epochs", 1), val_loader=val_loader)

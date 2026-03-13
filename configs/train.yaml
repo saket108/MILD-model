@@ -8,6 +8,8 @@ training:
   image_size: 640
   num_workers: 2
   seed: 42
+  amp: true
+  grad_clip_norm: 1.0
 
   max_prompts: 8
   prompt_strategy: random

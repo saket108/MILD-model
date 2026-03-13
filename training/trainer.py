@@ -25,6 +25,8 @@ class Trainer:
         logger: Logger | None = None,
         evaluator=None,
         best_metric_key: str = "map50",
+        use_amp: bool = False,
+        grad_clip_norm: float = 0.0,
     ) -> None:
         self.model = model
         self.optimizer = optimizer
@@ -37,6 +39,9 @@ class Trainer:
         self.evaluator = evaluator
         self.best_metric_key = best_metric_key
         self.best_metric = float("-inf")
+        self.use_amp = use_amp and device.type == "cuda"
+        self.grad_clip_norm = grad_clip_norm
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
 
     def train_one_epoch(self, dataloader: Iterable, epoch: int, epochs: int) -> Dict[str, float]:
         self.model.train()
@@ -62,12 +67,24 @@ class Trainer:
                 targets.append({"boxes": boxes, "labels": labels, "severity": sev})
 
             metrics_tensor = metrics.to(self.device) if metrics is not None else None
-            outputs = self.model(images, prompts, metrics_tensor)
-            loss, loss_dict = self.loss_fn(outputs, targets)
-
             self.optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            self.optimizer.step()
+            if self.use_amp:
+                with torch.cuda.amp.autocast():
+                    outputs = self.model(images, prompts, metrics_tensor)
+                    loss, loss_dict = self.loss_fn(outputs, targets)
+                self.scaler.scale(loss).backward()
+                if self.grad_clip_norm and self.grad_clip_norm > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                outputs = self.model(images, prompts, metrics_tensor)
+                loss, loss_dict = self.loss_fn(outputs, targets)
+                loss.backward()
+                if self.grad_clip_norm and self.grad_clip_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
+                self.optimizer.step()
 
             total_loss += float(loss.item())
             if step % 10 == 0:

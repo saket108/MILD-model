@@ -16,3 +16,19 @@ decoder_layers: 3
 decoder_heads: 8
 
 num_classes: 5
+
+multiscale: true
+feature_indices: [1, 2, 3]
+use_positional_encoding: true
+return_intermediate: true
+
+text_encoder_trainable: false
+text_encoder_cache: true
+text_encoder_cache_max_size: 4096
+
+loss_weights:
+  loss_bbox: 5.0
+  loss_giou: 2.0
+  loss_cls: 1.0
+  loss_severity: 1.0
+  loss_aux: 0.5
