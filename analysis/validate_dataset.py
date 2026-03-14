@@ -35,6 +35,26 @@ def _iter_image_files(images_dir: Path) -> Iterable[Path]:
             yield path
 
 
+def _resolve_image_path(image_root: Path, file_name: str, split: str | None) -> Path:
+    direct = image_root / file_name
+    if direct.exists():
+        return direct
+
+    if split:
+        candidate = image_root / split / "images" / file_name
+        if candidate.exists():
+            return candidate
+        candidate = image_root / split / file_name
+        if candidate.exists():
+            return candidate
+
+    candidate = image_root / "images" / file_name
+    if candidate.exists():
+        return candidate
+
+    return direct
+
+
 def _validate_label_file(
     label_path: Path,
     class_count: int | None,
@@ -144,7 +164,8 @@ def _validate_json(
         total_images += 1
 
         if image_root is not None:
-            img_path = image_root / file_name
+            split_value = item.get("split")
+            img_path = _resolve_image_path(image_root, file_name, split_value)
             if not img_path.exists():
                 _add_issue(issues, max_issues, f"Missing image file: {img_path}")
 

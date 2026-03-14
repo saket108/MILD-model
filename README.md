@@ -1,13 +1,23 @@
 # MILD Multimodal Detector
 
-Lightweight multimodal prompt-guided object detector for image and text.
+Lightweight multimodal prompt-guided object detector for image, text, and structured damage metrics.  
+Supports ADAS-style severity scoring, hybrid severity decisions, and research-friendly experiment tracking.
 
-**Setup**
-- Install dependencies: `pip install -r requirements.txt`
-- Prepare dataset JSONs and images.
+**Features**
+- Image + text + numeric metric fusion
+- DETR-style decoder with auxiliary losses
+- ADAS severity scoring and neural severity head
+- Dataset validation and calibration utilities
+- Colab-ready training flow
 
-**Colab Quickstart**
-Open `notebooks/colab_quickstart.ipynb` in Colab, or run:
+**Quickstart**
+```bash
+pip install -r requirements.txt
+python tools/train.py --config configs/train.yaml
+```
+
+**Colab**
+Open `notebooks/colab_quickstart.ipynb` or run:
 ```bash
 python tools/colab_setup.py --dataset-root /content/drive/MyDrive/your_dataset_root --safe --print
 python tools/train.py --config configs/train.yaml --device auto
@@ -16,21 +26,30 @@ Optional dataset download:
 ```bash
 python tools/colab_setup.py --dataset-root /content/dataset --dataset-url https://example.com/dataset.zip --safe --print
 ```
-**Colab One-Click**
-Open `notebooks/colab_one_click.ipynb` for a 1-epoch smoke test with weight prefetch.
+One-click smoke test: `notebooks/colab_one_click.ipynb`
+
+**Repository Layout**
+- `configs/` training and model configs
+- `dataset/` loaders and transforms
+- `models/` encoders, fusion, decoder, heads
+- `losses/` matcher and loss functions
+- `training/` trainer, optimizer, scheduler
+- `evaluation/` metrics and evaluation loop
+- `analysis/` validation, calibration, and reports
+- `tools/` CLI entrypoints
 
 **Configs**
 - Model config: `configs/model.yaml`
 - Train config: `configs/train.yaml`
+- Dataset config: `configs/dataset.yaml`
 
-**Dataset Format**
+**Dataset Formats**
 Two formats are supported.
 
 Simple list:
 - `image`: image filename
 - `boxes`: list of `[x, y, w, h]` boxes in pixels
 - `labels`: list of string labels
-
 ```json
 {
   "image": "img001.jpg",
@@ -75,8 +94,7 @@ Rich JSON with metadata:
 
 **Train**
 ```bash
-python tools/train.py \
-  --config configs/train.yaml
+python tools/train.py --config configs/train.yaml
 ```
 Optional run notes notebook:
 ```bash
@@ -95,9 +113,7 @@ class_names: configs/classes.txt
 
 **Evaluate**
 ```bash
-python tools/evaluate.py \
-  --config configs/train.yaml \
-  --checkpoint runs/exp_001/best.pt
+python tools/evaluate.py --config configs/train.yaml --checkpoint runs/exp_001/best.pt
 ```
 
 **Inference**
@@ -108,7 +124,6 @@ python tools/infer.py \
   --image path/to/image.jpg \
   --prompt "aircraft crack"
 ```
-
 Optional numeric metrics for inference:
 ```bash
 python tools/infer.py \
@@ -119,14 +134,13 @@ python tools/infer.py \
   --metrics 0.13 1.92 0.58 0.13
 ```
 
-**Runs**
-Experiments are stored under `runs/`.
-
-**Analysis Tools**
+**Analysis**
+- `python analysis/validate_dataset.py`
 - `python analysis/severity_analyzer.py`
 - `python analysis/severity_calibration.py`
 - `python analysis/dataset_report.py`
-- `python analysis/validate_dataset.py`
+- `python analysis/flops_report.py`
+- `python analysis/verify_mild_net.py`
 
 **Pipeline**
 ```bash

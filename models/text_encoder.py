@@ -96,10 +96,6 @@ class TextEncoder(nn.Module):
             flat = [p for prompts in batch_prompts for p in prompts]
             if not flat:
                 return torch.zeros((len(batch_prompts), self.hidden_dim), device=next(self.parameters()).device)
-
-        if self.trainable:
-            flat_embeddings = self._encode_with_cache(flat)
-        else:
             flat_embeddings = self._encode_with_cache(flat)
             embeddings = []
             idx = 0

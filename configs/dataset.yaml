@@ -1,11 +1,7 @@
-train_images: dataset/mild_data_1/train/images
-train_labels: dataset/mild_data_1/train/labels
-
-val_images: dataset/mild_data_1/valid/images
-val_labels: dataset/mild_data_1/valid/labels
-
-test_images: dataset/mild_data_1/test/images
-test_labels: dataset/mild_data_1/test/labels
+image_root: dataset/mild_data_1
+train_json: dataset/mild_data_1/train.json
+val_json: dataset/mild_data_1/valid.json
+test_json: dataset/mild_data_1/test.json
 
 class_names: configs/classes.txt
 json_paths: []

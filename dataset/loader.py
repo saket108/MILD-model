@@ -61,6 +61,26 @@ def _aggregate_metrics(annotations: List[Dict]) -> np.ndarray:
     return np.mean(np.asarray(metrics_list, dtype=np.float32), axis=0)
 
 
+def _resolve_image_path(image_root: Path, image_name: str, split: str | None) -> Path:
+    direct = image_root / image_name
+    if direct.exists():
+        return direct
+
+    if split:
+        candidate = image_root / split / "images" / image_name
+        if candidate.exists():
+            return candidate
+        candidate = image_root / split / image_name
+        if candidate.exists():
+            return candidate
+
+    candidate = image_root / "images" / image_name
+    if candidate.exists():
+        return candidate
+
+    return direct
+
+
 
 
 class MILDDetectionDataset(Dataset):
@@ -102,7 +122,7 @@ class MILDDetectionDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict:
         item = self.items[idx]
-        image_path = self.image_root / item["image"]
+        image_path = _resolve_image_path(self.image_root, item["image"], item.get("split"))
         image = cv2.imread(str(image_path))
         if image is None:
             raise FileNotFoundError(f"Image not found: {image_path}")

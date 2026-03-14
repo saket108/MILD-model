@@ -70,6 +70,7 @@ def _parse_rich(images: List[Dict[str, Any]], split: str | None) -> List[Dict[st
                 "boxes_norm": boxes_norm,
                 "labels": labels,
                 "annotations": parsed_annotations,
+                "split": split_value,
             }
         )
 

@@ -1,8 +1,8 @@
-image_encoder: convnext_tiny
+image_encoder: mild_net
 text_encoder: sentence-transformers/all-MiniLM-L6-v2
 
 hidden_dim: 256
-num_queries: 100
+num_queries: 20
 
 fusion:
   type: prompt_guided_attention
@@ -12,15 +12,15 @@ fusion:
 metrics_dim: 4
 metrics_hidden: 128
 
-decoder_layers: 3
+decoder_layers: 2
 decoder_heads: 8
 
 num_classes: 5
 
-multiscale: true
-feature_indices: [1, 2, 3]
+multiscale: false
+feature_indices: []
 use_positional_encoding: true
-return_intermediate: true
+return_intermediate: false
 
 text_encoder_trainable: false
 text_encoder_cache: true
@@ -31,4 +31,4 @@ loss_weights:
   loss_giou: 2.0
   loss_cls: 1.0
   loss_severity: 1.0
-  loss_aux: 0.5
+  loss_aux: 0.0
