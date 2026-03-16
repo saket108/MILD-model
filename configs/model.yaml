@@ -15,7 +15,7 @@ metrics_hidden: 128
 decoder_layers: 2
 decoder_heads: 8
 
-num_classes: 5
+num_classes: 6
 
 multiscale: false
 feature_indices: []

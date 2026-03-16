@@ -41,6 +41,9 @@ def _resolve_image_path(image_root: Path, file_name: str, split: str | None) -> 
         return direct
 
     if split:
+        candidate = image_root / "images" / split / file_name
+        if candidate.exists():
+            return candidate
         candidate = image_root / split / "images" / file_name
         if candidate.exists():
             return candidate

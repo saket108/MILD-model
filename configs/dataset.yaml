@@ -1,7 +1,7 @@
-image_root: dataset/mild_data_1
-train_json: dataset/mild_data_1/train.json
-val_json: dataset/mild_data_1/valid.json
-test_json: dataset/mild_data_1/test.json
+image_root: C:/Users/tsake/OneDrive/Desktop/Aircraft_dataset/content/Aircraft_dataset
+train_json: C:/Users/tsake/OneDrive/Desktop/Aircraft_dataset/content/Aircraft_dataset/Aircraft_train.json
+val_json: C:/Users/tsake/OneDrive/Desktop/Aircraft_dataset/content/Aircraft_dataset/Aircraft_val.json
+test_json: C:/Users/tsake/OneDrive/Desktop/Aircraft_dataset/content/Aircraft_dataset/Aircraft_test.json
 
 class_names: configs/classes.txt
 json_paths: []
