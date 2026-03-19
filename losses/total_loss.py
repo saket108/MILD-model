@@ -40,6 +40,7 @@ class TotalLoss:
             "loss_cls": torch.tensor(0.0, device=outputs["pred_logits"].device),
             "loss_severity": torch.tensor(0.0, device=outputs["pred_logits"].device),
         }
+        num_boxes = max(sum(int(t["labels"].numel()) for t in targets), 1)
 
         for b, (idx_pred, idx_tgt) in enumerate(indices):
             if idx_pred.numel() == 0:
@@ -67,7 +68,7 @@ class TotalLoss:
                     target_sev = target_sev[idx_tgt]
                 losses["loss_severity"] = losses["loss_severity"] + severity_loss(pred_sev, target_sev)
 
-        losses["loss_cls"] = sigmoid_focal_loss(outputs["pred_logits"], target_classes)
+        losses["loss_cls"] = sigmoid_focal_loss(outputs["pred_logits"], target_classes, num_boxes=num_boxes)
         return losses
 
     def __call__(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:

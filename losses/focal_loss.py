@@ -7,6 +7,7 @@ import torch.nn.functional as F
 def sigmoid_focal_loss(
     logits: torch.Tensor,
     targets: torch.Tensor,
+    num_boxes: int | float = 1,
     alpha: float = 0.25,
     gamma: float = 2.0,
 ) -> torch.Tensor:
@@ -21,4 +22,5 @@ def sigmoid_focal_loss(
     if alpha >= 0:
         alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
         loss = alpha_t * loss
-    return loss.mean()
+    num_boxes = max(float(num_boxes), 1.0)
+    return loss.mean(dim=-1).sum() / num_boxes

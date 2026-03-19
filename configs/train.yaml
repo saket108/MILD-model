@@ -11,10 +11,10 @@ training:
   amp: true
   grad_clip_norm: 1.0
 
-  max_prompts: 8
+  max_prompts: 2
   prompt_strategy: random
-  include_description: true
-  include_definition: true
+  include_description: false
+  include_definition: false
 
 optimizer:
   type: adamw

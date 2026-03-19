@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from training.optimizer import build_optimizer
 from training.scheduler import build_scheduler
 from training.trainer import Trainer
 from analysis.validate_dataset import validate_dataset
+from utils.checkpoint import load_checkpoint
 from utils.device import resolve_device
 from utils.run_notes import write_run_notebook
 from utils.seed import set_seed
@@ -52,6 +54,15 @@ def next_run_dir(base_dir: str | Path) -> Path:
     return base / f"exp_{next_id:03d}"
 
 
+def extract_summary(report: dict | None) -> dict:
+    if not isinstance(report, dict):
+        return {}
+    summary = report.get("summary")
+    if isinstance(summary, dict):
+        return summary
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="Training config (new format).")
@@ -63,6 +74,7 @@ def main() -> None:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--no-validate", action="store_true", help="Skip dataset validation.")
     parser.add_argument("--notes", default=None, help="Optional run notes for runs/exp_xxx/notes.ipynb")
+    parser.add_argument("--resume", default=None, help="Resume from runs/exp_xxx/last.pt or best.pt")
     args = parser.parse_args()
 
     if args.config:
@@ -175,15 +187,32 @@ def main() -> None:
     device = resolve_device(args.device)
     model = build_model(cfg_model).to(device)
     optimizer = build_optimizer(model, cfg_train)
-    total_steps = train_cfg.get("epochs", 1) * max(len(dataloader), 1)
-    scheduler = build_scheduler(optimizer, cfg_train, total_steps)
+    total_epochs = train_cfg.get("epochs", 1)
+    scheduler = build_scheduler(optimizer, cfg_train, total_epochs)
     loss_fn = build_loss(cfg_model)
 
-    run_dir = next_run_dir(output_cfg.get("save_dir", "runs"))
-    run_dir.mkdir(parents=True, exist_ok=True)
-    with (run_dir / "config.yaml").open("w", encoding="utf-8") as f:
-        yaml.safe_dump({"train": cfg_train, "model": cfg_model}, f, sort_keys=False)
-    write_run_notebook(run_dir, args.notes, cfg_train, cfg_model, dataset_cfg)
+    start_epoch = 0
+    history = []
+    best_epoch = None
+    best_report = None
+    trainer_best_metric = float("-inf")
+    if args.resume:
+        resume_path = Path(args.resume)
+        run_dir = resume_path.resolve().parent
+        checkpoint = load_checkpoint(resume_path, model, optimizer, scheduler)
+        start_epoch = int(checkpoint.get("epoch") or 0)
+        metrics_path = run_dir / "metrics.json"
+        if metrics_path.exists():
+            history = json.loads(metrics_path.read_text(encoding="utf-8"))
+        print(f"Resuming from: {resume_path}")
+        print(f"Run dir: {run_dir}")
+        print(f"Start epoch: {start_epoch + 1}/{train_cfg.get('epochs', 1)}")
+    else:
+        run_dir = next_run_dir(output_cfg.get("save_dir", "runs"))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        with (run_dir / "config.yaml").open("w", encoding="utf-8") as f:
+            yaml.safe_dump({"train": cfg_train, "model": cfg_model}, f, sort_keys=False)
+        write_run_notebook(run_dir, args.notes, cfg_train, cfg_model, dataset_cfg)
 
     trainer = Trainer(
         model=model,
@@ -196,8 +225,26 @@ def main() -> None:
         use_amp=train_cfg.get("amp", False),
         grad_clip_norm=train_cfg.get("grad_clip_norm", 0.0),
     )
+    if history:
+        for entry in history:
+            report = entry.get("val")
+            summary = extract_summary(report)
+            score = summary.get(trainer.best_metric_key)
+            if score is not None and score > trainer_best_metric:
+                trainer_best_metric = score
+                best_epoch = entry.get("epoch")
+                best_report = report if isinstance(report, dict) else {"summary": summary, "per_class": []}
+        trainer.best_metric = trainer_best_metric
 
-    trainer.fit(dataloader, epochs=train_cfg.get("epochs", 1), val_loader=val_loader)
+    trainer.fit(
+        dataloader,
+        epochs=train_cfg.get("epochs", 1),
+        val_loader=val_loader,
+        start_epoch=start_epoch,
+        history=history,
+        best_epoch=best_epoch,
+        best_report=best_report,
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import torch
 from torch import nn
 
@@ -27,6 +29,9 @@ class DetectorHead(nn.Module):
         super().__init__()
         self.classifier = nn.Linear(hidden_dim, num_classes)
         self.bbox_mlp = MLP(hidden_dim, hidden_dim, 4, num_layers=3)
+        prior_prob = 0.01
+        bias_value = -math.log((1 - prior_prob) / prior_prob)
+        nn.init.constant_(self.classifier.bias, bias_value)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         logits = self.classifier(x)
