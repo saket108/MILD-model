@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Dict, Iterable
 
@@ -46,11 +47,24 @@ class Trainer:
     def train_one_epoch(self, dataloader: Iterable, epoch: int, epochs: int) -> Dict[str, float]:
         self.model.train()
         total_loss = 0.0
+        loss_sums: Dict[str, float] = {}
+        start_time = time.perf_counter()
+        total_steps = len(dataloader)
+        if self.device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(self.device)
         for step, batch in enumerate(dataloader, start=1):
             images = batch["image"].to(self.device)
             prompts = batch["prompt"]
             metrics = batch.get("metrics")
             severity = batch.get("severity")
+            if step == 1:
+                self.logger.log_epoch_start(
+                    epoch=epoch,
+                    epochs=epochs,
+                    total_steps=total_steps,
+                    batch_size=getattr(dataloader, "batch_size", None),
+                    image_size=int(images.shape[-1]),
+                )
 
             targets = []
             _, _, h, w = images.shape
@@ -87,25 +101,50 @@ class Trainer:
                 self.optimizer.step()
 
             total_loss += float(loss.item())
-            if step % 10 == 0:
-                self.logger.log_step(epoch, epochs, step, len(dataloader), loss_dict)
+            for key, value in loss_dict.items():
+                loss_sums[key] = loss_sums.get(key, 0.0) + self._to_float(value)
+
+            should_log = step == 1 or step % 10 == 0 or step == total_steps
+            if should_log:
+                avg_loss_dict = {key: total / step for key, total in loss_sums.items()}
+                elapsed = time.perf_counter() - start_time
+                eta_seconds = (elapsed / step) * max(total_steps - step, 0) if step > 0 else None
+                gpu_mem = None
+                if self.device.type == "cuda":
+                    gpu_mem = torch.cuda.max_memory_reserved(self.device) / (1024 ** 3)
+                num_instances = sum(int(labels.shape[0]) for labels in batch["labels"])
+                lr = self.optimizer.param_groups[0]["lr"]
+                self.logger.log_step(
+                    epoch=epoch,
+                    epochs=epochs,
+                    step=step,
+                    total=total_steps,
+                    loss_dict=avg_loss_dict,
+                    lr=lr,
+                    num_instances=num_instances,
+                    image_size=int(images.shape[-1]),
+                    eta_seconds=eta_seconds,
+                    gpu_mem_gb=gpu_mem,
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
 
         avg_loss = total_loss / max(len(dataloader), 1)
-        return {"loss": avg_loss}
+        metrics = {"loss": avg_loss}
+        metrics.update({key: total / max(total_steps, 1) for key, total in loss_sums.items()})
+        return metrics
 
     def fit(self, train_loader: Iterable, epochs: int, val_loader: Iterable | None = None) -> None:
         history = []
         for epoch in range(1, epochs + 1):
             metrics = self.train_one_epoch(train_loader, epoch, epochs)
-            self.logger.log_epoch(epoch, epochs, metrics)
+            self.logger.log_epoch_metrics("train", epoch, epochs, metrics)
             save_checkpoint(self.save_dir / "last.pt", self.model, self.optimizer, self.scheduler, epoch, metrics)
 
             if self.evaluator is not None and val_loader is not None:
                 val_metrics = self.evaluator(self.model, val_loader, self.device)
-                self.logger.log_epoch(epoch, epochs, val_metrics)
+                self.logger.log_epoch_metrics("val", epoch, epochs, val_metrics)
                 score = val_metrics.get(self.best_metric_key)
                 if score is not None and score > self.best_metric:
                     self.best_metric = score
@@ -117,6 +156,7 @@ class Trainer:
                         epoch,
                         val_metrics,
                     )
+                    self.logger.log_best(self.best_metric_key, score)
                 history.append({"epoch": epoch, "train": metrics, "val": val_metrics})
             else:
                 history.append({"epoch": epoch, "train": metrics})
@@ -124,3 +164,9 @@ class Trainer:
             metrics_path = self.save_dir / "metrics.json"
             with metrics_path.open("w", encoding="utf-8") as f:
                 json.dump(history, f, indent=2)
+
+    @staticmethod
+    def _to_float(value) -> float:
+        if hasattr(value, "detach"):
+            value = value.detach()
+        return float(value)
