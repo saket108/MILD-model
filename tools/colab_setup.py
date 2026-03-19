@@ -3,6 +3,7 @@ import os
 import shutil
 import urllib.request
 import zipfile
+
 import yaml
 
 
@@ -17,35 +18,115 @@ def save_yaml(path, data):
         yaml.safe_dump(data, f, sort_keys=False)
 
 
+def split_dir_exists(root, split):
+    return os.path.isdir(os.path.join(root, split))
+
+
+def grouped_split_dir_exists(root, split):
+    return os.path.isdir(os.path.join(root, "images", split)) and os.path.isdir(
+        os.path.join(root, "labels", split)
+    )
+
+
 def infer_val_split(root, preferred):
     if preferred:
         return preferred
-    if os.path.isdir(os.path.join(root, "valid")):
+    if split_dir_exists(root, "valid") or grouped_split_dir_exists(root, "valid"):
         return "valid"
-    if os.path.isdir(os.path.join(root, "val")):
+    if split_dir_exists(root, "val") or grouped_split_dir_exists(root, "val"):
         return "val"
     return "valid"
 
+
 def has_split_dirs(root):
-    train_ok = os.path.isdir(os.path.join(root, "train"))
-    val_ok = os.path.isdir(os.path.join(root, "val")) or os.path.isdir(os.path.join(root, "valid"))
-    test_ok = os.path.isdir(os.path.join(root, "test"))
+    train_ok = split_dir_exists(root, "train")
+    val_ok = split_dir_exists(root, "val") or split_dir_exists(root, "valid")
+    test_ok = split_dir_exists(root, "test")
     return train_ok and val_ok and test_ok
 
 
-def resolve_dataset_root(root):
-    if has_split_dirs(root):
-        return root
+def has_grouped_image_label_dirs(root):
+    train_ok = grouped_split_dir_exists(root, "train")
+    val_ok = grouped_split_dir_exists(root, "val") or grouped_split_dir_exists(root, "valid")
+    test_ok = grouped_split_dir_exists(root, "test")
+    return train_ok and val_ok and test_ok
+
+
+def _split_aliases(split):
+    if split == "val":
+        return ["val", "valid"]
+    if split == "valid":
+        return ["valid", "val"]
+    return [split]
+
+
+def find_split_json(root, split):
+    if not os.path.isdir(root):
+        return None
+
     candidates = []
+    aliases = _split_aliases(split)
+    for name in os.listdir(root):
+        lower = name.lower()
+        if not lower.endswith(".json"):
+            continue
+
+        score = 0
+        for alias in aliases:
+            if lower == f"{alias}.json":
+                score = max(score, 4)
+            elif lower.endswith(f"_{alias}.json") or lower.endswith(f"-{alias}.json"):
+                score = max(score, 3)
+            elif lower.startswith(f"{alias}_") or lower.startswith(f"{alias}-"):
+                score = max(score, 2)
+            elif alias in lower:
+                score = max(score, 1)
+        if score:
+            candidates.append((score, len(name), os.path.join(root, name)))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return candidates[0][2]
+
+
+def has_split_jsons(root):
+    return bool(find_split_json(root, "train") and (find_split_json(root, "val") or find_split_json(root, "valid")))
+
+
+def dataset_root_score(root):
+    score = 0
+    if has_split_dirs(root):
+        score += 2
+    if has_grouped_image_label_dirs(root):
+        score += 3
+    if has_split_jsons(root):
+        score += 4
+    return score
+
+
+def resolve_dataset_root(root, max_depth=3):
     if not os.path.isdir(root):
         return root
-    for name in os.listdir(root):
-        path = os.path.join(root, name)
-        if os.path.isdir(path) and has_split_dirs(path):
-            candidates.append(path)
-    if len(candidates) == 1:
-        return candidates[0]
-    return root
+
+    best_root = root
+    best_score = dataset_root_score(root)
+    root = os.path.abspath(root)
+    base_depth = root.count(os.sep)
+
+    for current_root, dirnames, _ in os.walk(root):
+        depth = current_root.count(os.sep) - base_depth
+        if depth > max_depth:
+            dirnames[:] = []
+            continue
+
+        score = dataset_root_score(current_root)
+        if score > best_score:
+            best_root = current_root
+            best_score = score
+
+    return best_root if best_score > 0 else root
 
 
 def download_zip(url, dest_path):
@@ -60,17 +141,76 @@ def extract_zip(zip_path, dest_dir):
         zf.extractall(dest_dir)
 
 
-def update_dataset_config(path, root, train_split, val_split, test_split, class_names, json_paths):
+def infer_label_paths(root, train_split, val_split, test_split):
+    if has_grouped_image_label_dirs(root):
+        return {
+            "train_images": os.path.join(root, "images", train_split),
+            "train_labels": os.path.join(root, "labels", train_split),
+            "val_images": os.path.join(root, "images", val_split),
+            "val_labels": os.path.join(root, "labels", val_split),
+            "test_images": os.path.join(root, "images", test_split),
+            "test_labels": os.path.join(root, "labels", test_split),
+        }
+
+    if has_split_dirs(root):
+        return {
+            "train_images": os.path.join(root, train_split, "images"),
+            "train_labels": os.path.join(root, train_split, "labels"),
+            "val_images": os.path.join(root, val_split, "images"),
+            "val_labels": os.path.join(root, val_split, "labels"),
+            "test_images": os.path.join(root, test_split, "images"),
+            "test_labels": os.path.join(root, test_split, "labels"),
+        }
+
+    return None
+
+
+def infer_json_config(root, train_split, val_split, test_split, train_json, val_json, test_json):
+    train_json = train_json or find_split_json(root, train_split)
+    val_json = val_json or find_split_json(root, val_split)
+    test_json = test_json or find_split_json(root, test_split)
+
+    if not train_json or not val_json:
+        return None
+
+    return {
+        "image_root": root,
+        "train_json": train_json,
+        "val_json": val_json,
+        "test_json": test_json,
+    }
+
+
+def update_dataset_config(
+    path,
+    root,
+    train_split,
+    val_split,
+    test_split,
+    class_names,
+    json_paths,
+    train_json,
+    val_json,
+    test_json,
+):
     cfg = load_yaml(path)
-    cfg["train_images"] = os.path.join(root, train_split, "images")
-    cfg["train_labels"] = os.path.join(root, train_split, "labels")
-    cfg["val_images"] = os.path.join(root, val_split, "images")
-    cfg["val_labels"] = os.path.join(root, val_split, "labels")
-    cfg["test_images"] = os.path.join(root, test_split, "images")
-    cfg["test_labels"] = os.path.join(root, test_split, "labels")
+    label_paths = infer_label_paths(root, train_split, val_split, test_split)
+    json_cfg = infer_json_config(root, train_split, val_split, test_split, train_json, val_json, test_json)
+
+    if label_paths:
+        cfg.update(label_paths)
+
+    if json_cfg:
+        cfg.update(json_cfg)
+    elif not label_paths:
+        raise ValueError(
+            "Could not infer dataset layout. Expected split folders, images/labels folders, or split JSON files."
+        )
+
     if class_names:
         cfg["class_names"] = class_names
-    cfg["json_paths"] = json_paths or cfg.get("json_paths", []) or []
+
+    cfg["json_paths"] = list(json_paths or [])
     save_yaml(path, cfg)
     return cfg
 
@@ -100,7 +240,11 @@ def update_train_config(path, safe, batch_size, image_size, num_workers, epochs)
 
 def main():
     parser = argparse.ArgumentParser(description="Colab setup helper for MILD")
-    parser.add_argument("--dataset-root", required=True, help="Root containing train/val/test folders")
+    parser.add_argument(
+        "--dataset-root",
+        required=True,
+        help="Dataset root or parent folder containing split folders, images/labels folders, or split JSON files",
+    )
     parser.add_argument("--dataset-url", default=None, help="Optional URL to a dataset zip")
     parser.add_argument("--dataset-zip", default=None, help="Optional path for downloaded zip")
     parser.add_argument("--dataset-config", default="configs/dataset.yaml")
@@ -109,6 +253,9 @@ def main():
     parser.add_argument("--val-split", default=None)
     parser.add_argument("--test-split", default="test")
     parser.add_argument("--class-names", default=None)
+    parser.add_argument("--train-json", default=None, help="Optional explicit train JSON path")
+    parser.add_argument("--val-json", default=None, help="Optional explicit val JSON path")
+    parser.add_argument("--test-json", default=None, help="Optional explicit test JSON path")
     parser.add_argument("--json", nargs="*", default=None)
     parser.add_argument("--safe", action="store_true", help="Apply safe Colab defaults")
     parser.add_argument("--batch-size", type=int, default=None)
@@ -140,6 +287,9 @@ def main():
         args.test_split,
         args.class_names,
         args.json,
+        args.train_json,
+        args.val_json,
+        args.test_json,
     )
 
     train_cfg = update_train_config(
@@ -152,6 +302,11 @@ def main():
     )
 
     if args.print:
+        print("Resolved dataset root:", root)
+        print("  image_root:", dataset_cfg.get("image_root"))
+        print("  train_json:", dataset_cfg.get("train_json"))
+        print("  val_json:", dataset_cfg.get("val_json"))
+        print("  test_json:", dataset_cfg.get("test_json"))
         print("Updated dataset config:", args.dataset_config)
         print("  train_images:", dataset_cfg.get("train_images"))
         print("  train_labels:", dataset_cfg.get("train_labels"))
@@ -159,6 +314,7 @@ def main():
         print("  val_labels:", dataset_cfg.get("val_labels"))
         print("  test_images:", dataset_cfg.get("test_images"))
         print("  test_labels:", dataset_cfg.get("test_labels"))
+        print("  json_paths:", dataset_cfg.get("json_paths"))
         print("Updated train config:", args.train_config)
         print("  batch_size:", train_cfg.get("training", {}).get("batch_size"))
         print("  image_size:", train_cfg.get("training", {}).get("image_size"))
