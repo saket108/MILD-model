@@ -32,6 +32,17 @@ def _cxcywh_norm_to_xyxy_pixels(boxes: np.ndarray, img_w: int, img_h: int) -> np
     return np.stack([x_c - w / 2, y_c - h / 2, x_c + w / 2, y_c + h / 2], axis=-1)
 
 
+def _sanitize_xyxy_boxes(boxes: np.ndarray, img_w: int, img_h: int) -> tuple[np.ndarray, np.ndarray]:
+    if boxes.size == 0:
+        return boxes.reshape(0, 4), np.zeros((0,), dtype=bool)
+
+    clipped = boxes.reshape(-1, 4).astype(np.float32, copy=True)
+    clipped[:, [0, 2]] = np.clip(clipped[:, [0, 2]], 0.0, float(img_w))
+    clipped[:, [1, 3]] = np.clip(clipped[:, [1, 3]], 0.0, float(img_h))
+    keep = (clipped[:, 2] > clipped[:, 0]) & (clipped[:, 3] > clipped[:, 1])
+    return clipped[keep], keep
+
+
 def _dedupe_prompts(prompts: List[str]) -> List[str]:
     seen = set()
     unique = []
@@ -144,6 +155,9 @@ class MILDDetectionDataset(Dataset):
                 boxes = _xywh_to_xyxy(boxes)
 
         labels = item.get("labels", [])
+        boxes, keep_mask = _sanitize_xyxy_boxes(boxes, img_w, img_h)
+        if len(labels) == len(keep_mask):
+            labels = [label for label, keep in zip(labels, keep_mask.tolist()) if keep]
         label_ids = [self.label_to_id[label] for label in labels]
 
         prompts: List[str] = []

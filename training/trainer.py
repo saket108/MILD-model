@@ -41,7 +41,7 @@ class Trainer:
         self.best_metric = float("-inf")
         self.use_amp = use_amp and device.type == "cuda"
         self.grad_clip_norm = grad_clip_norm
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        self.scaler = torch.amp.GradScaler("cuda", enabled=self.use_amp)
 
     def train_one_epoch(self, dataloader: Iterable, epoch: int, epochs: int) -> Dict[str, float]:
         self.model.train()
@@ -69,7 +69,7 @@ class Trainer:
             metrics_tensor = metrics.to(self.device) if metrics is not None else None
             self.optimizer.zero_grad(set_to_none=True)
             if self.use_amp:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast("cuda"):
                     outputs = self.model(images, prompts, metrics_tensor)
                     loss, loss_dict = self.loss_fn(outputs, targets)
                 self.scaler.scale(loss).backward()
