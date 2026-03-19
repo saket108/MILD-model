@@ -135,11 +135,24 @@ class Trainer:
         metrics.update({key: total / max(total_steps, 1) for key, total in loss_sums.items()})
         return metrics
 
-    def fit(self, train_loader: Iterable, epochs: int, val_loader: Iterable | None = None) -> None:
-        history = []
-        best_epoch = None
-        best_report = None
-        for epoch in range(1, epochs + 1):
+    def fit(
+        self,
+        train_loader: Iterable,
+        epochs: int,
+        val_loader: Iterable | None = None,
+        start_epoch: int = 0,
+        history: list | None = None,
+        best_epoch: int | None = None,
+        best_report: dict | None = None,
+    ) -> None:
+        history = list(history or [])
+        if start_epoch >= epochs:
+            self.logger.console.print(
+                f"[yellow]Resume epoch {start_epoch} is already >= target epochs {epochs}. Nothing to do.[/yellow]"
+            )
+            return
+
+        for epoch in range(start_epoch + 1, epochs + 1):
             metrics = self.train_one_epoch(train_loader, epoch, epochs)
             self.logger.log_epoch_metrics("train", epoch, epochs, metrics)
             save_checkpoint(self.save_dir / "last.pt", self.model, self.optimizer, self.scheduler, epoch, metrics)
