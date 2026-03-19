@@ -67,7 +67,7 @@ class TextEncoder(nn.Module):
 
         if missing:
             with torch.no_grad():
-                fresh = self._encode(missing).detach().cpu()
+                fresh = self._encode(missing).detach().float().cpu()
             for text, emb in zip(missing, fresh):
                 self._cache[text] = emb
                 if self.cache_max_size and len(self._cache) > self.cache_max_size:
@@ -75,9 +75,9 @@ class TextEncoder(nn.Module):
 
         out = [None] * len(texts)
         for idx, emb in cached:
-            out[idx] = emb.to(device)
+            out[idx] = emb.to(device=device, dtype=torch.float32)
         for idx, text in zip(missing_idx, missing):
-            out[idx] = self._cache[text].to(device)
+            out[idx] = self._cache[text].to(device=device, dtype=torch.float32)
         return torch.stack(out, dim=0)
 
     def train(self, mode: bool = True):
