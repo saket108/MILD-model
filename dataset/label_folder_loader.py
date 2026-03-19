@@ -100,6 +100,7 @@ class LabelFolderDataset(Dataset):
         self.max_prompts = max_prompts
         self.prompt_strategy = prompt_strategy
         self.class_names = _load_class_names(class_names_path)
+        self.id_to_label = dict(self.class_names)
 
         self.items = []
         for label_path in sorted(self.labels_dir.glob("*.txt")):

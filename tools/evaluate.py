@@ -19,6 +19,7 @@ from evaluation.evaluator import evaluate
 from models.mild_model import build_model
 from utils.checkpoint import load_checkpoint
 from utils.device import resolve_device
+from utils.logger import Logger
 
 
 def load_yaml(path: str | Path) -> dict:
@@ -88,8 +89,8 @@ def main() -> None:
     model = build_model(cfg_model).to(device)
     load_checkpoint(args.checkpoint, model)
 
-    metrics = evaluate(model, dataloader, torch.device(device))
-    print(metrics)
+    report = evaluate(model, dataloader, torch.device(device))
+    Logger().log_detection_report("eval", 1, 1, report)
 
 
 if __name__ == "__main__":

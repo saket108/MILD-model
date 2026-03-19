@@ -75,6 +75,64 @@ class Logger:
             table.add_row(key, self._fmt_metric(value))
         self.console.print(table)
 
+    def log_detection_report(self, stage: str, epoch: int, epochs: int, report: Dict[str, object]) -> None:
+        summary = report.get("summary", {})
+        per_class = report.get("per_class", [])
+
+        summary_table = Table(title=f"{stage.capitalize()} Overall {epoch}/{epochs}", show_header=True, header_style="bold")
+        summary_table.add_column("Class")
+        summary_table.add_column("Images", justify="right")
+        summary_table.add_column("Instances", justify="right")
+        summary_table.add_column("Precision", justify="right")
+        summary_table.add_column("Recall", justify="right")
+        summary_table.add_column("mAP50", justify="right")
+        summary_table.add_column("mAP50-95", justify="right")
+        summary_table.add_row(
+            "All",
+            str(int(summary.get("images", 0))),
+            str(int(summary.get("instances", 0))),
+            self._fmt_metric(summary.get("precision")),
+            self._fmt_metric(summary.get("recall")),
+            self._fmt_metric(summary.get("map50")),
+            self._fmt_metric(summary.get("map50_95")),
+        )
+        self.console.print(summary_table)
+
+        class_table = Table(title=f"{stage.capitalize()} Per-Class {epoch}/{epochs}", show_header=True, header_style="bold")
+        class_table.add_column("Class")
+        class_table.add_column("Images", justify="right")
+        class_table.add_column("Instances", justify="right")
+        class_table.add_column("Precision", justify="right")
+        class_table.add_column("Recall", justify="right")
+        class_table.add_column("mAP50", justify="right")
+        class_table.add_column("mAP50-95", justify="right")
+        for row in per_class:
+            class_table.add_row(
+                str(row.get("class_name", row.get("class_id", "?"))),
+                str(int(row.get("images", 0))),
+                str(int(row.get("instances", 0))),
+                self._fmt_metric(row.get("precision")),
+                self._fmt_metric(row.get("recall")),
+                self._fmt_metric(row.get("map50")),
+                self._fmt_metric(row.get("map50_95")),
+            )
+        self.console.print(class_table)
+
+        extra_keys = [key for key in ("f1", "severity_mae", "severity_rmse") if key in summary]
+        if extra_keys:
+            extras = Table(title=f"{stage.capitalize()} Extra Metrics {epoch}/{epochs}", show_header=True, header_style="bold")
+            extras.add_column("Metric")
+            extras.add_column("Value", justify="right")
+            for key in extra_keys:
+                extras.add_row(key, self._fmt_metric(summary.get(key)))
+            self.console.print(extras)
+
+    def log_final_report(self, stage: str, epoch: int, report: Dict[str, object], metric_key: str) -> None:
+        metric_value = report.get("summary", {}).get(metric_key)
+        metric_text = self._fmt_metric(metric_value)
+        self.console.print(Rule(f"[bold green]{stage} Epoch {epoch} | {metric_key}={metric_text}[/bold green]"))
+        self.log_detection_report(stage, epoch, epoch, report)
+
     def log_best(self, metric_key: str, value: float) -> None:
         self.console.print(f"[green]Best {metric_key}[/green]: {value:.4f}")
 

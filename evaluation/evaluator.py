@@ -12,6 +12,8 @@ from losses.box_losses import box_cxcywh_to_xyxy
 def evaluate(model: torch.nn.Module, dataloader: Iterable, device: torch.device) -> dict:
     model.eval()
     metrics = DetectionMetrics()
+    dataset = getattr(dataloader, "dataset", None)
+    class_name_map = getattr(dataset, "id_to_label", None)
 
     for batch in dataloader:
         images = batch["image"].to(device)
@@ -52,4 +54,4 @@ def evaluate(model: torch.nn.Module, dataloader: Iterable, device: torch.device)
                 else None,
             )
 
-    return metrics.compute()
+    return metrics.compute(class_name_map=class_name_map)

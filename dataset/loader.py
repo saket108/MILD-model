@@ -122,6 +122,7 @@ class MILDDetectionDataset(Dataset):
         self.include_description = include_description
         self.include_definition = include_definition
         self.label_to_id = self._build_label_map(self.items)
+        self.id_to_label = {idx: label for label, idx in self.label_to_id.items()}
 
     @staticmethod
     def _build_label_map(items: List[Dict]) -> Dict[str, int]:

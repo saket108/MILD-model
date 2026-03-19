@@ -137,33 +137,41 @@ class Trainer:
 
     def fit(self, train_loader: Iterable, epochs: int, val_loader: Iterable | None = None) -> None:
         history = []
+        best_epoch = None
+        best_report = None
         for epoch in range(1, epochs + 1):
             metrics = self.train_one_epoch(train_loader, epoch, epochs)
             self.logger.log_epoch_metrics("train", epoch, epochs, metrics)
             save_checkpoint(self.save_dir / "last.pt", self.model, self.optimizer, self.scheduler, epoch, metrics)
 
             if self.evaluator is not None and val_loader is not None:
-                val_metrics = self.evaluator(self.model, val_loader, self.device)
-                self.logger.log_epoch_metrics("val", epoch, epochs, val_metrics)
-                score = val_metrics.get(self.best_metric_key)
+                val_report = self.evaluator(self.model, val_loader, self.device)
+                val_summary = val_report.get("summary", {})
+                self.logger.log_detection_report("val", epoch, epochs, val_report)
+                score = val_summary.get(self.best_metric_key)
                 if score is not None and score > self.best_metric:
                     self.best_metric = score
+                    best_epoch = epoch
+                    best_report = val_report
                     save_checkpoint(
                         self.save_dir / "best.pt",
                         self.model,
                         self.optimizer,
                         self.scheduler,
                         epoch,
-                        val_metrics,
+                        val_summary,
                     )
                     self.logger.log_best(self.best_metric_key, score)
-                history.append({"epoch": epoch, "train": metrics, "val": val_metrics})
+                history.append({"epoch": epoch, "train": metrics, "val": val_report})
             else:
                 history.append({"epoch": epoch, "train": metrics})
 
             metrics_path = self.save_dir / "metrics.json"
             with metrics_path.open("w", encoding="utf-8") as f:
                 json.dump(history, f, indent=2)
+
+        if best_epoch is not None and best_report is not None:
+            self.logger.log_final_report("best val", best_epoch, best_report, self.best_metric_key)
 
     @staticmethod
     def _to_float(value) -> float:
