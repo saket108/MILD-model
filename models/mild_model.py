@@ -46,6 +46,8 @@ class MILDModel(nn.Module):
         text_trainable: bool = False,
         text_cache: bool = True,
         text_cache_max_size: int = 4096,
+        text_pooling: str = "mean",
+        text_trust_remote_code: bool = False,
         use_text: bool = True,
         use_metrics: bool = True,
     ) -> None:
@@ -59,9 +61,11 @@ class MILDModel(nn.Module):
             self.text_encoder = TextEncoder(
                 text_encoder,
                 hidden_dim=hidden_dim,
+                pooling=text_pooling,
                 trainable=text_trainable,
                 cache=text_cache,
                 cache_max_size=text_cache_max_size,
+                trust_remote_code=text_trust_remote_code,
             )
 
         self.metrics_encoder = None
@@ -148,6 +152,8 @@ def build_model(cfg: Dict) -> MILDModel:
         text_trainable=cfg.get("text_encoder_trainable", False),
         text_cache=cfg.get("text_encoder_cache", True),
         text_cache_max_size=cfg.get("text_encoder_cache_max_size", 4096),
+        text_pooling=cfg.get("text_pooling", "mean"),
+        text_trust_remote_code=cfg.get("text_encoder_trust_remote_code", False),
         use_text=cfg.get("use_text", True),
         use_metrics=cfg.get("use_metrics", True),
     )

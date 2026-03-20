@@ -1,5 +1,5 @@
-image_encoder: mild_net
-text_encoder: sentence-transformers/all-MiniLM-L6-v2
+image_encoder: swinv2_large_window12to24_192to384
+text_encoder: Alibaba-NLP/gte-large-en-v1.5
 
 hidden_dim: 256
 num_queries: 20
@@ -17,14 +17,16 @@ decoder_heads: 8
 
 num_classes: 6
 
-multiscale: false
-feature_indices: []
+multiscale: true
+feature_indices: [1, 2, 3]
 use_positional_encoding: true
 return_intermediate: false
 
 text_encoder_trainable: false
 text_encoder_cache: true
 text_encoder_cache_max_size: 4096
+text_pooling: cls
+text_encoder_trust_remote_code: true
 use_text: false
 use_metrics: true
 

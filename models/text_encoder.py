@@ -9,21 +9,27 @@ from transformers import AutoModel, AutoTokenizer
 
 
 class TextEncoder(nn.Module):
-    """MiniLM text encoder with mean pooling."""
+    """HuggingFace text encoder with configurable pooling."""
 
     def __init__(
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
         hidden_dim: int = 256,
+        pooling: str = "mean",
         trainable: bool = True,
         cache: bool = False,
         cache_max_size: int = 4096,
+        trust_remote_code: bool = False,
     ) -> None:
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
+        if pooling not in {"mean", "cls"}:
+            raise ValueError(f"Unsupported pooling mode: {pooling}")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+        self.model = AutoModel.from_pretrained(model_name, trust_remote_code=trust_remote_code)
         self.proj = nn.Linear(self.model.config.hidden_size, hidden_dim)
         self.hidden_dim = hidden_dim
+        self.pooling = pooling
         self.trainable = trainable
         self.cache_enabled = cache
         self.cache_max_size = cache_max_size
@@ -43,9 +49,12 @@ class TextEncoder(nn.Module):
         )
         tokens = {k: v.to(device) for k, v in tokens.items()}
         outputs = self.model(**tokens)
-        last_hidden = outputs.last_hidden_state
-        attention_mask = tokens["attention_mask"].unsqueeze(-1).float()
-        pooled = (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1.0)
+        if self.pooling == "cls":
+            pooled = outputs.last_hidden_state[:, 0]
+        else:
+            last_hidden = outputs.last_hidden_state
+            attention_mask = tokens["attention_mask"].unsqueeze(-1).float()
+            pooled = (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1).clamp(min=1.0)
         return self.proj(pooled)
 
     def _encode_with_cache(self, texts: Sequence[str]) -> torch.Tensor:
