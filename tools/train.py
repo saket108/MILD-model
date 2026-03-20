@@ -22,6 +22,12 @@ from losses.total_loss import build_loss
 from models.mild_model import build_model
 from training.optimizer import build_optimizer
 from training.scheduler import build_scheduler
+from training.class_balance import (
+    build_class_weights,
+    build_sample_weights,
+    build_weighted_sampler,
+    format_named_values,
+)
 from training.trainer import Trainer
 from analysis.validate_dataset import validate_dataset
 from utils.checkpoint import load_checkpoint
@@ -62,6 +68,55 @@ def extract_summary(report: dict | None) -> dict:
     if isinstance(summary, dict):
         return summary
     return report
+
+
+def _maybe_build_class_balance(dataset, train_cfg: dict, num_classes: int) -> tuple[object | None, torch.Tensor | None]:
+    class_balance_cfg = train_cfg.get("class_balance", {})
+    if not class_balance_cfg:
+        return None, None
+
+    label_names = getattr(dataset, "id_to_label", {}) or {}
+    sampler = None
+    class_weights = None
+
+    sampling_cfg = class_balance_cfg.get("sampling", {})
+    if sampling_cfg.get("enabled", False):
+        sample_weights, image_counts, sampling_class_weights = build_sample_weights(
+            dataset,
+            num_classes=num_classes,
+            power=float(sampling_cfg.get("power", 0.5)),
+            mode=str(sampling_cfg.get("mode", "max")),
+            max_weight=sampling_cfg.get("max_weight"),
+        )
+        if sample_weights.numel() > 0:
+            sampler = build_weighted_sampler(sample_weights)
+            print(
+                "Balanced sampling image counts:",
+                format_named_values(label_names, image_counts),
+            )
+            print(
+                "Balanced sampling weights:",
+                format_named_values(label_names, sampling_class_weights),
+            )
+
+    loss_cfg = class_balance_cfg.get("loss", {})
+    if loss_cfg.get("enabled", False):
+        class_weights, instance_counts = build_class_weights(
+            dataset,
+            num_classes=num_classes,
+            power=float(loss_cfg.get("power", 0.5)),
+            max_weight=loss_cfg.get("max_weight"),
+        )
+        print(
+            "Class instance counts:",
+            format_named_values(label_names, instance_counts),
+        )
+        print(
+            "Class loss weights:",
+            format_named_values(label_names, class_weights),
+        )
+
+    return sampler, class_weights
 
 
 def main() -> None:
@@ -145,10 +200,14 @@ def main() -> None:
             max_prompts=train_cfg.get("max_prompts", 8),
             prompt_strategy=train_cfg.get("prompt_strategy", "random"),
         )
+    num_classes = int(cfg_model.get("num_classes", getattr(dataset, "num_classes", 0)))
+    train_sampler, class_weights = _maybe_build_class_balance(dataset, train_cfg, num_classes)
+
     dataloader = DataLoader(
         dataset,
         batch_size=train_cfg.get("batch_size", 8),
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         num_workers=train_cfg.get("num_workers", 2),
         collate_fn=collate_fn,
     )
@@ -197,7 +256,7 @@ def main() -> None:
     optimizer = build_optimizer(model, cfg_train)
     total_epochs = train_cfg.get("epochs", 1)
     scheduler = build_scheduler(optimizer, cfg_train, total_epochs)
-    loss_fn = build_loss(cfg_model)
+    loss_fn = build_loss(cfg_model, class_weights=class_weights)
     evaluator = None
     if val_loader is not None:
         evaluator = partial(

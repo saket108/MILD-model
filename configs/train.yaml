@@ -10,6 +10,16 @@ training:
   seed: 42
   amp: true
   grad_clip_norm: 1.0
+  class_balance:
+    sampling:
+      enabled: true
+      power: 0.5
+      mode: max
+      max_weight: 4.0
+    loss:
+      enabled: true
+      power: 0.5
+      max_weight: 3.0
 
   max_prompts: 8
   prompt_strategy: coverage

@@ -138,7 +138,19 @@ class LabelFolderDataset(Dataset):
             image_path = self._find_image_for_stem(stem)
             if image_path is None:
                 continue
-            self.items.append({"image": image_path, "label": label_path})
+            boxes_norm, labels = self._read_label_file(label_path)
+            self.items.append(
+                {
+                    "image": image_path,
+                    "label": label_path,
+                    "boxes_norm": boxes_norm,
+                    "labels": labels,
+                }
+            )
+        max_seen_class = max((label for item in self.items for label in item["labels"]), default=-1)
+        self.num_classes = max(len(self.class_names), max_seen_class + 1)
+        for class_id in range(self.num_classes):
+            self.id_to_label.setdefault(class_id, self.class_names.get(class_id, f"class_{class_id}"))
 
     def _find_image_for_stem(self, stem: str) -> Path | None:
         exts = [".jpg", ".jpeg", ".png", ".bmp"]
@@ -151,6 +163,38 @@ class LabelFolderDataset(Dataset):
     def __len__(self) -> int:
         return len(self.items)
 
+    def _read_label_file(self, label_path: Path) -> tuple[list[list[float]], list[int]]:
+        boxes_norm: list[list[float]] = []
+        labels: list[int] = []
+        for line in label_path.read_text(encoding="utf-8").splitlines():
+            parts = line.strip().split()
+            if len(parts) < 5:
+                continue
+            class_id = int(float(parts[0]))
+            xc, yc, w, h = map(float, parts[1:5])
+            boxes_norm.append([xc, yc, w, h])
+            labels.append(class_id)
+        return boxes_norm, labels
+
+    def get_label_id_lists(self) -> List[List[int]]:
+        return [list(item["labels"]) for item in self.items]
+
+    def get_class_instance_counts(self) -> torch.Tensor:
+        counts = torch.zeros(self.num_classes, dtype=torch.long)
+        for item in self.items:
+            for label in item["labels"]:
+                if 0 <= label < self.num_classes:
+                    counts[label] += 1
+        return counts
+
+    def get_class_image_counts(self) -> torch.Tensor:
+        counts = torch.zeros(self.num_classes, dtype=torch.long)
+        for item in self.items:
+            for label in set(item["labels"]):
+                if 0 <= label < self.num_classes:
+                    counts[label] += 1
+        return counts
+
     def __getitem__(self, idx: int) -> Dict:
         item = self.items[idx]
         image_path = item["image"]
@@ -160,19 +204,8 @@ class LabelFolderDataset(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img_h, img_w = image.shape[:2]
 
-        label_path = item["label"]
-        boxes_norm = []
-        labels = []
-        for line in label_path.read_text(encoding="utf-8").splitlines():
-            parts = line.strip().split()
-            if len(parts) < 5:
-                continue
-            class_id = int(float(parts[0]))
-            xc, yc, w, h = map(float, parts[1:5])
-            boxes_norm.append([xc, yc, w, h])
-            labels.append(class_id)
-
-        boxes_norm_np = np.asarray(boxes_norm, dtype=np.float32)
+        boxes_norm_np = np.asarray(item["boxes_norm"], dtype=np.float32)
+        labels = list(item["labels"])
         boxes = _cxcywh_norm_to_xyxy_pixels(boxes_norm_np, img_w, img_h)
         boxes, keep_mask = _sanitize_xyxy_boxes(boxes, img_w, img_h)
         if len(labels) == len(keep_mask):

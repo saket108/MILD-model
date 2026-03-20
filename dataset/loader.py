@@ -152,7 +152,9 @@ class MILDDetectionDataset(Dataset):
         self.include_description = include_description
         self.include_definition = include_definition
         self.label_to_id = self._build_label_map(self.items)
+        self.num_classes = len(self.label_to_id)
         self.id_to_label = {idx: label for label, idx in self.label_to_id.items()}
+        self.label_id_lists = self._build_label_id_lists(self.items)
 
     @staticmethod
     def _build_label_map(items: List[Dict]) -> Dict[str, int]:
@@ -164,6 +166,31 @@ class MILDDetectionDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.items)
+
+    def _build_label_id_lists(self, items: List[Dict]) -> List[List[int]]:
+        label_id_lists: List[List[int]] = []
+        for item in items:
+            label_id_lists.append(
+                [self.label_to_id[label] for label in item.get("labels", []) if label in self.label_to_id]
+            )
+        return label_id_lists
+
+    def get_label_id_lists(self) -> List[List[int]]:
+        return [list(label_ids) for label_ids in self.label_id_lists]
+
+    def get_class_instance_counts(self) -> torch.Tensor:
+        counts = torch.zeros(self.num_classes, dtype=torch.long)
+        for label_ids in self.label_id_lists:
+            for label_id in label_ids:
+                counts[label_id] += 1
+        return counts
+
+    def get_class_image_counts(self) -> torch.Tensor:
+        counts = torch.zeros(self.num_classes, dtype=torch.long)
+        for label_ids in self.label_id_lists:
+            for label_id in set(label_ids):
+                counts[label_id] += 1
+        return counts
 
     def __getitem__(self, idx: int) -> Dict:
         item = self.items[idx]

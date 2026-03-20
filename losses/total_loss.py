@@ -14,9 +14,16 @@ from losses.severity_loss import severity_loss
 class TotalLoss:
     """Combines bbox, giou, and classification loss."""
 
-    def __init__(self, matcher: HungarianMatcher, num_classes: int, weight_dict: Dict[str, float] | None = None) -> None:
+    def __init__(
+        self,
+        matcher: HungarianMatcher,
+        num_classes: int,
+        weight_dict: Dict[str, float] | None = None,
+        class_weights: torch.Tensor | None = None,
+    ) -> None:
         self.matcher = matcher
         self.num_classes = num_classes
+        self.class_weights = class_weights.detach().clone().to(torch.float32) if class_weights is not None else None
         self.weight_dict = weight_dict or {
             "loss_bbox": 5.0,
             "loss_giou": 2.0,
@@ -68,7 +75,12 @@ class TotalLoss:
                     target_sev = target_sev[idx_tgt]
                 losses["loss_severity"] = losses["loss_severity"] + severity_loss(pred_sev, target_sev)
 
-        losses["loss_cls"] = sigmoid_focal_loss(outputs["pred_logits"], target_classes, num_boxes=num_boxes)
+        losses["loss_cls"] = sigmoid_focal_loss(
+            outputs["pred_logits"],
+            target_classes,
+            num_boxes=num_boxes,
+            class_weights=self.class_weights,
+        )
         return losses
 
     def __call__(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
@@ -102,8 +114,13 @@ class TotalLoss:
         return total, losses
 
 
-def build_loss(cfg_model: Dict) -> TotalLoss:
+def build_loss(cfg_model: Dict, class_weights: torch.Tensor | None = None) -> TotalLoss:
     matcher = HungarianMatcher(cost_class=1.0, cost_bbox=5.0, cost_giou=2.0)
     num_classes = cfg_model.get("num_classes", 5)
     weight_dict = cfg_model.get("loss_weights")
-    return TotalLoss(matcher=matcher, num_classes=num_classes, weight_dict=weight_dict)
+    return TotalLoss(
+        matcher=matcher,
+        num_classes=num_classes,
+        weight_dict=weight_dict,
+        class_weights=class_weights,
+    )
