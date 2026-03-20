@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import Dataset
 
 from damage_assessment.severity_score import severity_from_xyxy
-from dataset.prompt_generator import DEFAULT_TEMPLATES, generate_prompt
+from dataset.prompt_generator import DEFAULT_TEMPLATES, build_prompts, generate_prompt
 from dataset.transforms import get_transforms
 
 
@@ -95,6 +95,18 @@ def _aggregate_metrics(boxes_norm: np.ndarray) -> np.ndarray:
     return np.mean(np.asarray(metrics, dtype=np.float32), axis=0)
 
 
+def _priority_prompts(labels: List[int], class_names: Dict[int, str], prompt_mode: str) -> List[str]:
+    if prompt_mode == "generic":
+        return ["aircraft damage"]
+    if prompt_mode not in {"full", "label_only", "label_zone"}:
+        return []
+    prompts = []
+    for class_id in dict.fromkeys(labels):
+        label_name = class_names.get(class_id, f"class_{class_id}")
+        prompts.append(f"{label_name} on aircraft surface")
+    return prompts
+
+
 def _load_class_names(path: str | Path | None) -> Dict[int, str]:
     if path is None:
         return {}
@@ -122,6 +134,7 @@ class LabelFolderDataset(Dataset):
         prompt_templates: List[str] | None = None,
         max_prompts: int = 8,
         prompt_strategy: str = "random",
+        prompt_mode: str = "full",
     ) -> None:
         self.images_dir = Path(images_dir)
         self.labels_dir = Path(labels_dir)
@@ -129,6 +142,7 @@ class LabelFolderDataset(Dataset):
         self.prompt_templates = prompt_templates or DEFAULT_TEMPLATES
         self.max_prompts = max_prompts
         self.prompt_strategy = prompt_strategy
+        self.prompt_mode = prompt_mode
         self.class_names = _load_class_names(class_names_path)
         self.id_to_label = dict(self.class_names)
 
@@ -215,8 +229,18 @@ class LabelFolderDataset(Dataset):
         prompts = []
         for class_id in labels:
             label_name = self.class_names.get(class_id, f"class_{class_id}")
-            prompts.append(generate_prompt(label_name, self.prompt_templates))
-        priority_prompts = list(prompts)
+            prompts.extend(
+                build_prompts(
+                    {"label": label_name},
+                    prompt_mode=self.prompt_mode,
+                )
+            )
+        if not prompts:
+            if self.prompt_mode == "generic":
+                prompts = ["aircraft damage"]
+            else:
+                prompts = [generate_prompt("damage", self.prompt_templates)]
+        priority_prompts = _priority_prompts(labels, self.class_names, self.prompt_mode)
 
         prompts = _select_prompts(
             prompts,

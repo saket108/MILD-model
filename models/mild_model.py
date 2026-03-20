@@ -46,21 +46,31 @@ class MILDModel(nn.Module):
         text_trainable: bool = False,
         text_cache: bool = True,
         text_cache_max_size: int = 4096,
+        use_text: bool = True,
+        use_metrics: bool = True,
     ) -> None:
         super().__init__()
+        self.hidden_dim = hidden_dim
+        self.use_text = use_text
+        self.use_metrics = use_metrics
 
-        self.text_encoder = TextEncoder(
-            text_encoder,
-            hidden_dim=hidden_dim,
-            trainable=text_trainable,
-            cache=text_cache,
-            cache_max_size=text_cache_max_size,
-        )
-        self.metrics_encoder = MetricsEncoder(
-            input_dim=metrics_dim,
-            hidden_dim=metrics_hidden,
-            output_dim=hidden_dim,
-        )
+        self.text_encoder = None
+        if self.use_text:
+            self.text_encoder = TextEncoder(
+                text_encoder,
+                hidden_dim=hidden_dim,
+                trainable=text_trainable,
+                cache=text_cache,
+                cache_max_size=text_cache_max_size,
+            )
+
+        self.metrics_encoder = None
+        if self.use_metrics:
+            self.metrics_encoder = MetricsEncoder(
+                input_dim=metrics_dim,
+                hidden_dim=metrics_hidden,
+                output_dim=hidden_dim,
+            )
         self.image_encoder = ImageEncoder(
             image_encoder,
             pretrained=True,
@@ -90,11 +100,20 @@ class MILDModel(nn.Module):
     ) -> Dict[str, torch.Tensor]:
 
         # Modality encoders
-        text        = self.text_encoder(prompts)
-        metrics_emb = self.metrics_encoder(metrics) if metrics is not None else None
+        if self.use_text and self.text_encoder is not None:
+            text = self.text_encoder(prompts)
+            prompt_emb = text
+        else:
+            text = torch.zeros((images.shape[0], self.hidden_dim), device=images.device, dtype=images.dtype)
+            prompt_emb = None
+
+        if self.use_metrics and self.metrics_encoder is not None and metrics is not None:
+            metrics_emb = self.metrics_encoder(metrics)
+        else:
+            metrics_emb = None
 
         # MILD-Net backbone (Mods 2 & 3 active when text/metrics provided)
-        visual = self.image_encoder(images, metrics_emb=metrics_emb, prompt_emb=text)
+        visual = self.image_encoder(images, metrics_emb=metrics_emb, prompt_emb=prompt_emb)
 
         # UDCM: single unified pass → query tokens [B, Q, C]
         tokens = self.udcm(visual, text, metrics_emb)
@@ -129,4 +148,6 @@ def build_model(cfg: Dict) -> MILDModel:
         text_trainable=cfg.get("text_encoder_trainable", False),
         text_cache=cfg.get("text_encoder_cache", True),
         text_cache_max_size=cfg.get("text_encoder_cache_max_size", 4096),
+        use_text=cfg.get("use_text", True),
+        use_metrics=cfg.get("use_metrics", True),
     )

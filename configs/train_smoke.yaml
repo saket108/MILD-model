@@ -13,6 +13,7 @@ training:
 
   max_prompts: 8
   prompt_strategy: random
+  prompt_mode: full
   include_description: true
   include_definition: true
 

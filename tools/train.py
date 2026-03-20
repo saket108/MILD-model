@@ -187,6 +187,7 @@ def main() -> None:
             train=True,
             max_prompts=train_cfg.get("max_prompts", 8),
             prompt_strategy=train_cfg.get("prompt_strategy", "random"),
+            prompt_mode=train_cfg.get("prompt_mode", "full"),
             include_description=train_cfg.get("include_description", True),
             include_definition=train_cfg.get("include_definition", True),
         )
@@ -199,6 +200,7 @@ def main() -> None:
             class_names_path=class_names,
             max_prompts=train_cfg.get("max_prompts", 8),
             prompt_strategy=train_cfg.get("prompt_strategy", "random"),
+            prompt_mode=train_cfg.get("prompt_mode", "full"),
         )
     num_classes = int(cfg_model.get("num_classes", getattr(dataset, "num_classes", 0)))
     train_sampler, class_weights = _maybe_build_class_balance(dataset, train_cfg, num_classes)
@@ -224,6 +226,7 @@ def main() -> None:
                 train=False,
                 max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
                 prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+                prompt_mode=train_cfg.get("val_prompt_mode", train_cfg.get("prompt_mode", "full")),
                 include_description=train_cfg.get(
                     "val_include_description",
                     train_cfg.get("include_description", True),
@@ -242,6 +245,7 @@ def main() -> None:
                 class_names_path=class_names,
                 max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
                 prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+                prompt_mode=train_cfg.get("val_prompt_mode", train_cfg.get("prompt_mode", "full")),
             )
         val_loader = DataLoader(
             val_dataset,

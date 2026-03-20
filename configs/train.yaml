@@ -23,11 +23,13 @@ training:
 
   max_prompts: 8
   prompt_strategy: coverage
+  prompt_mode: full
   include_description: true
   include_definition: true
 
   val_max_prompts: 8
   val_prompt_strategy: coverage
+  val_prompt_mode: full
   val_include_description: true
   val_include_definition: true
 

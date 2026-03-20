@@ -102,6 +102,15 @@ def _aggregate_metrics(annotations: List[Dict]) -> np.ndarray:
     return np.mean(np.asarray(metrics_list, dtype=np.float32), axis=0)
 
 
+def _priority_prompts(labels: List[str], prompt_mode: str) -> List[str]:
+    unique_labels = list(dict.fromkeys(labels))
+    if prompt_mode in {"full", "label_only", "label_zone"}:
+        return [f"{label} on aircraft surface" for label in unique_labels]
+    if prompt_mode == "generic":
+        return ["aircraft damage"]
+    return []
+
+
 def _resolve_image_path(image_root: Path, image_name: str, split: str | None) -> Path:
     direct = image_root / image_name
     if direct.exists():
@@ -140,6 +149,7 @@ class MILDDetectionDataset(Dataset):
         split: str | None = None,
         max_prompts: int = 8,
         prompt_strategy: str = "random",
+        prompt_mode: str = "full",
         include_description: bool = True,
         include_definition: bool = True,
     ) -> None:
@@ -149,6 +159,7 @@ class MILDDetectionDataset(Dataset):
         self.prompt_templates = prompt_templates or DEFAULT_TEMPLATES
         self.max_prompts = max_prompts
         self.prompt_strategy = prompt_strategy
+        self.prompt_mode = prompt_mode
         self.include_description = include_description
         self.include_definition = include_definition
         self.label_to_id = self._build_label_map(self.items)
@@ -217,7 +228,7 @@ class MILDDetectionDataset(Dataset):
         if len(labels) == len(keep_mask):
             labels = [label for label, keep in zip(labels, keep_mask.tolist()) if keep]
         label_ids = [self.label_to_id[label] for label in labels]
-        priority_prompts = [f"{label} on aircraft surface" for label in dict.fromkeys(labels)]
+        priority_prompts = _priority_prompts(labels, self.prompt_mode)
 
         prompts: List[str] = []
         if item.get("annotations"):
@@ -227,17 +238,28 @@ class MILDDetectionDataset(Dataset):
                         ann,
                         include_description=self.include_description,
                         include_definition=self.include_definition,
+                        prompt_mode=self.prompt_mode,
                     )
                 )
-        if not prompts and item.get("prompts"):
+        if not prompts and item.get("prompts") and self.prompt_mode == "full":
             raw_prompts = item.get("prompts")
             if isinstance(raw_prompts, str):
                 prompts = [raw_prompts]
             else:
                 prompts = list(raw_prompts)
         if not prompts:
-            prompt_label = labels[0] if labels else "object"
-            prompts = [generate_prompt(prompt_label, self.prompt_templates)]
+            if self.prompt_mode == "generic":
+                prompts = ["aircraft damage"]
+            else:
+                prompt_label = labels[0] if labels else "object"
+                prompts = build_prompts(
+                    {"label": prompt_label},
+                    include_description=self.include_description,
+                    include_definition=self.include_definition,
+                    prompt_mode=self.prompt_mode,
+                )
+                if not prompts:
+                    prompts = [generate_prompt(prompt_label, self.prompt_templates)]
 
         prompts = _select_prompts(
             priority_prompts + prompts,

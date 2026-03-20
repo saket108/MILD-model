@@ -22,6 +22,10 @@ Open `notebooks/colab_quickstart.ipynb` or run:
 python tools/colab_setup.py --dataset-root /content/drive/MyDrive/your_dataset_root --safe --print
 python tools/train.py --config configs/train.yaml --device auto
 ```
+If Google Drive is mounted, `tools/colab_setup.py` now writes `output.save_dir` to `/content/drive/MyDrive/MILD_runs` automatically so `last.pt` and `best.pt` survive Colab disconnects. You can override it with:
+```bash
+python tools/colab_setup.py --dataset-root /content/drive/MyDrive/your_dataset_root --output-save-dir /content/drive/MyDrive/custom_runs --safe --print
+```
 Optional dataset download:
 ```bash
 python tools/colab_setup.py --dataset-root /content/dataset --dataset-url https://example.com/dataset.zip --safe --print

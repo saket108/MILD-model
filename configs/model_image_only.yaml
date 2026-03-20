@@ -25,8 +25,8 @@ return_intermediate: false
 text_encoder_trainable: false
 text_encoder_cache: true
 text_encoder_cache_max_size: 4096
-use_text: true
-use_metrics: true
+use_text: false
+use_metrics: false
 
 loss_weights:
   loss_bbox: 5.0

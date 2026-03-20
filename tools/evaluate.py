@@ -47,6 +47,7 @@ def main() -> None:
     parser.add_argument("--nms-iou", type=float, default=None)
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--max-detections", type=int, default=None)
+    parser.add_argument("--prompt-mode", default=None, help="Override validation prompt mode.")
     args = parser.parse_args()
 
     cfg_train = load_yaml(args.config) if args.config else {}
@@ -75,6 +76,7 @@ def main() -> None:
             train=False,
             max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
             prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+            prompt_mode=args.prompt_mode or train_cfg.get("val_prompt_mode", train_cfg.get("prompt_mode", "full")),
             include_description=train_cfg.get(
                 "val_include_description",
                 train_cfg.get("include_description", True),
@@ -93,6 +95,7 @@ def main() -> None:
             class_names_path=class_names,
             max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
             prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+            prompt_mode=args.prompt_mode or train_cfg.get("val_prompt_mode", train_cfg.get("prompt_mode", "full")),
         )
     else:
         raise ValueError("Provide val_json or val_images/val_labels in config or via CLI.")

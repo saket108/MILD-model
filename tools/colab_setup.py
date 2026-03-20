@@ -18,6 +18,13 @@ def save_yaml(path, data):
         yaml.safe_dump(data, f, sort_keys=False)
 
 
+def infer_default_output_save_dir():
+    drive_root = "/content/drive/MyDrive"
+    if os.path.isdir(drive_root):
+        return os.path.join(drive_root, "MILD_runs")
+    return None
+
+
 def split_dir_exists(root, split):
     return os.path.isdir(os.path.join(root, split))
 
@@ -215,9 +222,10 @@ def update_dataset_config(
     return cfg
 
 
-def update_train_config(path, safe, batch_size, image_size, num_workers, epochs):
+def update_train_config(path, safe, batch_size, image_size, num_workers, epochs, output_save_dir):
     cfg = load_yaml(path)
     training = cfg.get("training", {})
+    output = cfg.get("output", {})
 
     if safe:
         training["batch_size"] = 1
@@ -232,8 +240,15 @@ def update_train_config(path, safe, batch_size, image_size, num_workers, epochs)
         training["num_workers"] = num_workers
     if epochs is not None:
         training["epochs"] = epochs
+    if output_save_dir is not None:
+        output["save_dir"] = output_save_dir
+    elif not output.get("save_dir") or output.get("save_dir") == "runs":
+        default_output_save_dir = infer_default_output_save_dir()
+        if default_output_save_dir is not None:
+            output["save_dir"] = default_output_save_dir
 
     cfg["training"] = training
+    cfg["output"] = output
     save_yaml(path, cfg)
     return cfg
 
@@ -262,6 +277,11 @@ def main():
     parser.add_argument("--image-size", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument(
+        "--output-save-dir",
+        default=None,
+        help="Directory to store run checkpoints and metrics. Defaults to /content/drive/MyDrive/MILD_runs when Drive is mounted.",
+    )
     parser.add_argument("--print", action="store_true", help="Print updated config paths")
     args = parser.parse_args()
 
@@ -299,6 +319,7 @@ def main():
         args.image_size,
         args.num_workers,
         args.epochs,
+        args.output_save_dir,
     )
 
     if args.print:
@@ -320,6 +341,7 @@ def main():
         print("  image_size:", train_cfg.get("training", {}).get("image_size"))
         print("  num_workers:", train_cfg.get("training", {}).get("num_workers"))
         print("  epochs:", train_cfg.get("training", {}).get("epochs"))
+        print("  output.save_dir:", train_cfg.get("output", {}).get("save_dir"))
 
 
 if __name__ == "__main__":
