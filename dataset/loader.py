@@ -55,6 +55,36 @@ def _dedupe_prompts(prompts: List[str]) -> List[str]:
     return unique
 
 
+def _select_prompts(
+    prompts: List[str],
+    max_prompts: int,
+    prompt_strategy: str,
+    priority_prompts: List[str] | None = None,
+) -> List[str]:
+    prompts = _dedupe_prompts(prompts)
+    if not max_prompts or len(prompts) <= max_prompts:
+        return prompts
+
+    if prompt_strategy == "random":
+        return random.sample(prompts, max_prompts)
+
+    if prompt_strategy == "coverage":
+        selected = []
+        for prompt in _dedupe_prompts(priority_prompts or []):
+            if prompt in prompts and prompt not in selected:
+                selected.append(prompt)
+            if len(selected) >= max_prompts:
+                return selected
+        for prompt in prompts:
+            if prompt not in selected:
+                selected.append(prompt)
+            if len(selected) >= max_prompts:
+                break
+        return selected
+
+    return prompts[:max_prompts]
+
+
 def _aggregate_metrics(annotations: List[Dict]) -> np.ndarray:
     metrics_list = []
     for ann in annotations:
@@ -160,6 +190,7 @@ class MILDDetectionDataset(Dataset):
         if len(labels) == len(keep_mask):
             labels = [label for label, keep in zip(labels, keep_mask.tolist()) if keep]
         label_ids = [self.label_to_id[label] for label in labels]
+        priority_prompts = [f"{label} on aircraft surface" for label in dict.fromkeys(labels)]
 
         prompts: List[str] = []
         if item.get("annotations"):
@@ -181,12 +212,12 @@ class MILDDetectionDataset(Dataset):
             prompt_label = labels[0] if labels else "object"
             prompts = [generate_prompt(prompt_label, self.prompt_templates)]
 
-        prompts = _dedupe_prompts(prompts)
-        if self.max_prompts and len(prompts) > self.max_prompts:
-            if self.prompt_strategy == "random":
-                prompts = random.sample(prompts, self.max_prompts)
-            else:
-                prompts = prompts[: self.max_prompts]
+        prompts = _select_prompts(
+            priority_prompts + prompts,
+            self.max_prompts,
+            self.prompt_strategy,
+            priority_prompts=priority_prompts,
+        )
 
         metrics_vec = _aggregate_metrics(item.get("annotations", []))
 

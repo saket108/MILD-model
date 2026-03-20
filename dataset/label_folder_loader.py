@@ -47,6 +47,36 @@ def _dedupe_prompts(prompts: Iterable[str]) -> List[str]:
     return unique
 
 
+def _select_prompts(
+    prompts: List[str],
+    max_prompts: int,
+    prompt_strategy: str,
+    priority_prompts: List[str] | None = None,
+) -> List[str]:
+    prompts = _dedupe_prompts(prompts)
+    if not max_prompts or len(prompts) <= max_prompts:
+        return prompts
+
+    if prompt_strategy == "random":
+        return random.sample(prompts, max_prompts)
+
+    if prompt_strategy == "coverage":
+        selected = []
+        for prompt in _dedupe_prompts(priority_prompts or []):
+            if prompt in prompts and prompt not in selected:
+                selected.append(prompt)
+            if len(selected) >= max_prompts:
+                return selected
+        for prompt in prompts:
+            if prompt not in selected:
+                selected.append(prompt)
+            if len(selected) >= max_prompts:
+                break
+        return selected
+
+    return prompts[:max_prompts]
+
+
 def _compute_metrics(xc: float, yc: float, w: float, h: float) -> List[float]:
     area = w * h
     min_side = max(min(w, h), 1e-8)
@@ -153,13 +183,14 @@ class LabelFolderDataset(Dataset):
         for class_id in labels:
             label_name = self.class_names.get(class_id, f"class_{class_id}")
             prompts.append(generate_prompt(label_name, self.prompt_templates))
+        priority_prompts = list(prompts)
 
-        prompts = _dedupe_prompts(prompts)
-        if self.max_prompts and len(prompts) > self.max_prompts:
-            if self.prompt_strategy == "random":
-                prompts = random.sample(prompts, self.max_prompts)
-            else:
-                prompts = prompts[: self.max_prompts]
+        prompts = _select_prompts(
+            prompts,
+            self.max_prompts,
+            self.prompt_strategy,
+            priority_prompts=priority_prompts,
+        )
 
         metrics_vec = _aggregate_metrics(boxes_norm_np)
 

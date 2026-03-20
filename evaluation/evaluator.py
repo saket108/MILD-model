@@ -5,11 +5,19 @@ from typing import Iterable
 import torch
 
 from evaluation.metrics import DetectionMetrics
-from losses.box_losses import box_cxcywh_to_xyxy
+from utils.detection_postprocess import postprocess_detections
 
 
 @torch.no_grad()
-def evaluate(model: torch.nn.Module, dataloader: Iterable, device: torch.device) -> dict:
+def evaluate(
+    model: torch.nn.Module,
+    dataloader: Iterable,
+    device: torch.device,
+    score_threshold: float = 0.0,
+    nms_iou: float | None = None,
+    top_k: int | None = None,
+    max_detections: int | None = None,
+) -> dict:
     model.eval()
     metrics = DetectionMetrics()
     dataset = getattr(dataloader, "dataset", None)
@@ -31,22 +39,29 @@ def evaluate(model: torch.nn.Module, dataloader: Iterable, device: torch.device)
         pred_logits = outputs["pred_logits"]
         pred_boxes = outputs["pred_boxes"]
         pred_severity = outputs.get("pred_severity")
-
-        scores, labels = pred_logits.sigmoid().max(dim=-1)
-        pred_boxes_xyxy = box_cxcywh_to_xyxy(pred_boxes).cpu().numpy()
-        pred_severity_np = pred_severity.cpu().numpy() if pred_severity is not None else None
+        detections = postprocess_detections(
+            pred_logits=pred_logits,
+            pred_boxes=pred_boxes,
+            pred_severity=pred_severity,
+            score_threshold=score_threshold,
+            nms_iou=nms_iou,
+            top_k=top_k,
+            max_detections=max_detections,
+        )
 
         for i in range(len(images)):
             _, _, h, w = images.shape
             scale = torch.tensor([w, h, w, h], dtype=torch.float32)
             target_boxes = targets["boxes"][i].cpu() / scale
+            pred = detections[i]
+            pred_severity_np = pred["severity"].cpu().numpy() if pred["severity"] is not None else None
 
             metrics.update(
                 image_id=targets["image_id"][i],
-                pred_boxes=pred_boxes_xyxy[i],
-                pred_scores=scores[i].cpu().numpy(),
-                pred_labels=labels[i].cpu().numpy(),
-                pred_severity=pred_severity_np[i] if pred_severity_np is not None else None,
+                pred_boxes=pred["boxes"].cpu().numpy(),
+                pred_scores=pred["scores"].cpu().numpy(),
+                pred_labels=pred["labels"].cpu().numpy(),
+                pred_severity=pred_severity_np,
                 target_boxes=target_boxes.numpy(),
                 target_labels=targets["labels"][i].cpu().numpy(),
                 target_severity=targets.get("severity", [None])[i].cpu().numpy()

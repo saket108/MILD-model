@@ -12,9 +12,9 @@ import cv2
 import torch
 import yaml
 
-from losses.box_losses import box_cxcywh_to_xyxy
 from models.mild_model import build_model
 from utils.checkpoint import load_checkpoint
+from utils.detection_postprocess import postprocess_detections
 from utils.device import resolve_device
 from utils.visualizer import draw_boxes
 
@@ -31,7 +31,10 @@ def main() -> None:
     parser.add_argument("--image", required=True)
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--score-threshold", type=float, default=0.3)
+    parser.add_argument("--score-threshold", type=float, default=0.1)
+    parser.add_argument("--nms-iou", type=float, default=0.5)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--max-detections", type=int, default=None)
     parser.add_argument("--image-size", type=int, default=640)
     parser.add_argument("--metrics", nargs=4, type=float)
     args = parser.parse_args()
@@ -57,20 +60,20 @@ def main() -> None:
     with torch.no_grad():
         outputs = model(image_tensor, [args.prompt], metrics_tensor)
 
-    scores, labels = outputs["pred_logits"].sigmoid().max(dim=-1)
-    severities = outputs.get("pred_severity")
-    boxes = box_cxcywh_to_xyxy(outputs["pred_boxes"]).cpu().numpy()[0]
-    scores = scores.cpu().numpy()[0]
-    labels = labels.cpu().numpy()[0]
-    if severities is not None:
-        severities = severities.cpu().numpy()[0]
+    result = postprocess_detections(
+        pred_logits=outputs["pred_logits"],
+        pred_boxes=outputs["pred_boxes"],
+        pred_severity=outputs.get("pred_severity"),
+        score_threshold=args.score_threshold,
+        nms_iou=args.nms_iou,
+        top_k=args.top_k,
+        max_detections=args.max_detections,
+    )[0]
 
-    keep = scores >= args.score_threshold
-    boxes = boxes[keep]
-    scores = scores[keep]
-    labels = labels[keep]
-    if severities is not None:
-        severities = severities[keep]
+    boxes = result["boxes"].cpu().numpy()
+    scores = result["scores"].cpu().numpy()
+    labels = result["labels"].cpu().numpy()
+    severities = result["severity"].cpu().numpy() if result["severity"] is not None else None
 
     if boxes.size > 0:
         scale = torch.tensor([original_w, original_h, original_w, original_h], dtype=torch.float32)

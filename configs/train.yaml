@@ -11,10 +11,15 @@ training:
   amp: true
   grad_clip_norm: 1.0
 
-  max_prompts: 2
-  prompt_strategy: random
-  include_description: false
-  include_definition: false
+  max_prompts: 8
+  prompt_strategy: coverage
+  include_description: true
+  include_definition: true
+
+  val_max_prompts: 8
+  val_prompt_strategy: coverage
+  val_include_description: true
+  val_include_definition: true
 
 optimizer:
   type: adamw
@@ -23,6 +28,11 @@ optimizer:
 
 scheduler:
   type: cosine
+
+evaluation:
+  best_metric_key: map50
+  score_threshold: 0.05
+  nms_iou: 0.5
 
 output:
   save_dir: runs

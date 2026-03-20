@@ -43,11 +43,16 @@ def main() -> None:
     parser.add_argument("--val-json", help="Override val JSON path.")
     parser.add_argument("--image-root", help="Override image root.")
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--score-threshold", type=float, default=None)
+    parser.add_argument("--nms-iou", type=float, default=None)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--max-detections", type=int, default=None)
     args = parser.parse_args()
 
     cfg_train = load_yaml(args.config) if args.config else {}
     dataset_cfg = merge_dataset_cfg(cfg_train) if cfg_train else {}
     train_cfg = cfg_train.get("training", cfg_train) if cfg_train else {}
+    eval_cfg = cfg_train.get("evaluation", {}) if cfg_train else {}
 
     model_config_path = args.model_config or cfg_train.get("model_config")
     if model_config_path is None:
@@ -68,8 +73,16 @@ def main() -> None:
             image_root=image_root,
             image_size=train_cfg.get("image_size", 640),
             train=False,
-            max_prompts=8,
-            prompt_strategy="random",
+            max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
+            prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+            include_description=train_cfg.get(
+                "val_include_description",
+                train_cfg.get("include_description", True),
+            ),
+            include_definition=train_cfg.get(
+                "val_include_definition",
+                train_cfg.get("include_definition", True),
+            ),
         )
     elif val_images and val_labels:
         dataset = LabelFolderDataset(
@@ -78,8 +91,8 @@ def main() -> None:
             image_size=train_cfg.get("image_size", 640),
             train=False,
             class_names_path=class_names,
-            max_prompts=8,
-            prompt_strategy="random",
+            max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
+            prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
         )
     else:
         raise ValueError("Provide val_json or val_images/val_labels in config or via CLI.")
@@ -89,7 +102,21 @@ def main() -> None:
     model = build_model(cfg_model).to(device)
     load_checkpoint(args.checkpoint, model)
 
-    report = evaluate(model, dataloader, torch.device(device))
+    report = evaluate(
+        model,
+        dataloader,
+        torch.device(device),
+        score_threshold=(
+            args.score_threshold
+            if args.score_threshold is not None
+            else float(eval_cfg.get("score_threshold", 0.0) or 0.0)
+        ),
+        nms_iou=args.nms_iou if args.nms_iou is not None else eval_cfg.get("nms_iou"),
+        top_k=args.top_k if args.top_k is not None else eval_cfg.get("top_k"),
+        max_detections=(
+            args.max_detections if args.max_detections is not None else eval_cfg.get("max_detections")
+        ),
+    )
     Logger().log_detection_report("eval", 1, 1, report)
 
 

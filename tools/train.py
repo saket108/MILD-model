@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from functools import partial
 import json
 import sys
 from pathlib import Path
@@ -91,6 +92,7 @@ def main() -> None:
 
     train_cfg = cfg_train.get("training", cfg_train)
     dataset_cfg = merge_dataset_cfg(cfg_train)
+    eval_cfg = cfg_train.get("evaluation", {})
     output_cfg = cfg_train.get("output", cfg_train)
 
     set_seed(train_cfg.get("seed", cfg_train.get("seed", 42)))
@@ -161,10 +163,16 @@ def main() -> None:
                 image_root=image_root,
                 image_size=train_cfg.get("image_size", 640),
                 train=False,
-                max_prompts=train_cfg.get("max_prompts", 8),
-                prompt_strategy=train_cfg.get("prompt_strategy", "random"),
-                include_description=train_cfg.get("include_description", True),
-                include_definition=train_cfg.get("include_definition", True),
+                max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
+                prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
+                include_description=train_cfg.get(
+                    "val_include_description",
+                    train_cfg.get("include_description", True),
+                ),
+                include_definition=train_cfg.get(
+                    "val_include_definition",
+                    train_cfg.get("include_definition", True),
+                ),
             )
         else:
             val_dataset = LabelFolderDataset(
@@ -173,8 +181,8 @@ def main() -> None:
                 image_size=train_cfg.get("image_size", 640),
                 train=False,
                 class_names_path=class_names,
-                max_prompts=train_cfg.get("max_prompts", 8),
-                prompt_strategy=train_cfg.get("prompt_strategy", "random"),
+                max_prompts=train_cfg.get("val_max_prompts", train_cfg.get("max_prompts", 8)),
+                prompt_strategy=train_cfg.get("val_prompt_strategy", train_cfg.get("prompt_strategy", "random")),
             )
         val_loader = DataLoader(
             val_dataset,
@@ -190,6 +198,15 @@ def main() -> None:
     total_epochs = train_cfg.get("epochs", 1)
     scheduler = build_scheduler(optimizer, cfg_train, total_epochs)
     loss_fn = build_loss(cfg_model)
+    evaluator = None
+    if val_loader is not None:
+        evaluator = partial(
+            evaluate,
+            score_threshold=float(eval_cfg.get("score_threshold", 0.0) or 0.0),
+            nms_iou=eval_cfg.get("nms_iou"),
+            top_k=eval_cfg.get("top_k"),
+            max_detections=eval_cfg.get("max_detections"),
+        )
 
     start_epoch = 0
     history = []
@@ -221,7 +238,8 @@ def main() -> None:
         loss_fn=loss_fn,
         device=torch.device(device),
         save_dir=run_dir,
-        evaluator=evaluate if val_loader is not None else None,
+        evaluator=evaluator,
+        best_metric_key=eval_cfg.get("best_metric_key", "map50"),
         use_amp=train_cfg.get("amp", False),
         grad_clip_norm=train_cfg.get("grad_clip_norm", 0.0),
     )
